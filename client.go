@@ -25,7 +25,7 @@ func NewClient(url string, pcConfig webrtc.Configuration) (WhepClient, error) {
 	return client, nil
 }
 
-func (client *WhepClient) connect() {
+func (client *WhepClient) Connect() {
 	// create peer connection
 
 	// we don't want to use simulcast interceptors
