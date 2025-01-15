@@ -12,20 +12,13 @@ import (
 )
 
 type Client struct {
+	Pc *webrtc.PeerConnection
+
 	url      string
 	pcConfig webrtc.Configuration
 }
 
 func New(url string, pcConfig webrtc.Configuration) (Client, error) {
-	client := Client{
-		url:      url,
-		pcConfig: pcConfig,
-	}
-
-	return client, nil
-}
-
-func (client *Client) Connect() {
 	// create peer connection
 
 	// we don't want to use simulcast interceptors
@@ -70,35 +63,30 @@ func (client *Client) Connect() {
 
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(mediaEngine), webrtc.WithInterceptorRegistry(interceptorRegistry))
 
-	peerConnection, err := api.NewPeerConnection(client.pcConfig)
+	pc, err := api.NewPeerConnection(pcConfig)
 	if err != nil {
 		panic(err)
 	}
 
-	peerConnection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
-	})
+	client := Client{
+		url:      url,
+		Pc:       pc,
+		pcConfig: pcConfig,
+	}
 
-	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		fmt.Printf("New track: %s\n", track.Codec().MimeType)
-		for {
-			// do we need to call this if we ignore read packets anyway?
-			_, _, err := track.ReadRTP()
-			if err != nil {
-				panic(err)
-			}
-		}
-	})
+	return client, nil
+}
 
+func (client *Client) Connect() {
 	// add transceivers
-	_, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
+	_, err := client.Pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = peerConnection.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
+	_, err = client.Pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
 	})
 	if err != nil {
@@ -106,24 +94,24 @@ func (client *Client) Connect() {
 	}
 
 	// create offer
-	offer, err := peerConnection.CreateOffer(nil)
+	offer, err := client.Pc.CreateOffer(nil)
 	if err != nil {
 		panic(err)
-	} else if err = peerConnection.SetLocalDescription(offer); err != nil {
+	} else if err = client.Pc.SetLocalDescription(offer); err != nil {
 		panic(err)
 	}
 
 	// Create channel that is blocked until ICE Gathering is complete
-	gatherComplete := webrtc.GatheringCompletePromise(peerConnection)
+	gatherComplete := webrtc.GatheringCompletePromise(client.Pc)
 
 	// Block until ICE Gathering is complete, disabling trickle ICE
 	// we do this because we only can exchange one signaling message
 	// in a production application you should exchange ICE Candidates via OnICECandidate
 	<-gatherComplete
 
-	fmt.Println(peerConnection.LocalDescription().SDP)
+	fmt.Println(client.Pc.LocalDescription().SDP)
 
-	resp, err := http.Post(client.url+"/api/whep", "application/SDP", bytes.NewBufferString(peerConnection.LocalDescription().SDP))
+	resp, err := http.Post(client.url+"/api/whep", "application/SDP", bytes.NewBufferString(client.Pc.LocalDescription().SDP))
 	if err != nil {
 		panic(err)
 	}
@@ -135,7 +123,7 @@ func (client *Client) Connect() {
 
 	fmt.Println(string(body))
 
-	if err = peerConnection.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: string(body)}); err != nil {
+	if err = client.Pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: string(body)}); err != nil {
 		panic(err)
 	}
 }
