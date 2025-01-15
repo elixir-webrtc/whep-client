@@ -11,13 +11,13 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-type WhepClient struct {
+type Client struct {
 	url      string
 	pcConfig webrtc.Configuration
 }
 
-func NewClient(url string, pcConfig webrtc.Configuration) (WhepClient, error) {
-	client := WhepClient{
+func New(url string, pcConfig webrtc.Configuration) (Client, error) {
+	client := Client{
 		url:      url,
 		pcConfig: pcConfig,
 	}
@@ -25,7 +25,7 @@ func NewClient(url string, pcConfig webrtc.Configuration) (WhepClient, error) {
 	return client, nil
 }
 
-func (client *WhepClient) Connect() {
+func (client *Client) Connect() {
 	// create peer connection
 
 	// we don't want to use simulcast interceptors
@@ -80,7 +80,7 @@ func (client *WhepClient) Connect() {
 	})
 
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		fmt.Printf("New track: %s", track.Codec().MimeType)
+		fmt.Printf("New track: %s\n", track.Codec().MimeType)
 		for {
 			// do we need to call this if we ignore read packets anyway?
 			_, _, err := track.ReadRTP()
