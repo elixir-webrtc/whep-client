@@ -2,6 +2,7 @@ package whepclient
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 
@@ -9,36 +10,41 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
+var (
+	ErrFailedToConnect  = errors.New("Failed to connect")
+	ErrNoLocationHeader = errors.New("No location header in the response")
+)
+
 type Client struct {
 	Pc *webrtc.PeerConnection
 
 	url      string
 	pcConfig webrtc.Configuration
+	location string
 }
 
-func New(url string, pcConfig webrtc.Configuration) (Client, error) {
-	// create peer connection
+func New(url string, pcConfig webrtc.Configuration) (*Client, error) {
 	interceptorRegistry := &interceptor.Registry{}
 	mediaEngine := &webrtc.MediaEngine{}
 
 	err := mediaEngine.RegisterDefaultCodecs()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	err = webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(mediaEngine), webrtc.WithInterceptorRegistry(interceptorRegistry))
 
 	pc, err := api.NewPeerConnection(pcConfig)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	client := Client{
+	client := &Client{
 		Pc:       pc,
 		url:      url,
 		pcConfig: pcConfig,
@@ -47,28 +53,28 @@ func New(url string, pcConfig webrtc.Configuration) (Client, error) {
 	return client, nil
 }
 
-func (client *Client) Connect() {
+func (client *Client) Connect() error {
 	// add transceivers
 	_, err := client.Pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	_, err = client.Pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
 	})
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// create offer
 	offer, err := client.Pc.CreateOffer(nil)
 	if err != nil {
-		panic(err)
+		return err
 	} else if err = client.Pc.SetLocalDescription(offer); err != nil {
-		panic(err)
+		return err
 	}
 
 	// Create channel that is blocked until ICE Gathering is complete
@@ -77,17 +83,32 @@ func (client *Client) Connect() {
 	// Block until ICE Gathering is complete, disabling trickle ICE
 	<-gatherComplete
 
-	resp, err := http.Post(client.url+"/api/whep", "application/SDP", bytes.NewBufferString(client.Pc.LocalDescription().SDP))
+	resp, err := http.Post(client.url, "application/SDP", bytes.NewBufferString(client.Pc.LocalDescription().SDP))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		panic(err)
+		return err
+	}
+
+	if resp.StatusCode != 201 {
+		return ErrFailedToConnect
+	}
+
+	client.location = resp.Header.Get("location")
+	if client.location == "" {
+		return ErrNoLocationHeader
 	}
 
 	if err = client.Pc.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: string(body)}); err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
+}
+
+func (client *Client) Disconnect() {
+
 }
