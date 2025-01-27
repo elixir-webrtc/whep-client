@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrFailedToConnect  = errors.New("Failed to connect")
-	ErrNoLocationHeader = errors.New("No location header in the response")
+	ErrFailedToConnect    = errors.New("Failed to connect")
+	ErrNoLocationHeader   = errors.New("No location header in the response")
+	ErrFailedToDisconnect = errors.New("Failed to remove server resource")
 )
 
 type Client struct {
@@ -87,6 +88,7 @@ func (client *Client) Connect() error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -109,6 +111,29 @@ func (client *Client) Connect() error {
 	return nil
 }
 
-func (client *Client) Disconnect() {
+func (client *Client) Disconnect() error {
+	err := client.Pc.Close()
+	if err != nil {
+		// What should we do when Close returns an error?
+		// Should this ever happen?
+		return err
+	}
 
+	req, err := http.NewRequest("DELETE", client.location, nil)
+	if err != nil {
+		return ErrFailedToDisconnect
+	}
+
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return ErrFailedToDisconnect
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return ErrFailedToDisconnect
+	}
+
+	return nil
 }
