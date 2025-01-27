@@ -23,7 +23,6 @@ type Client struct {
 	Pc *webrtc.PeerConnection
 
 	url      string
-	pcConfig webrtc.Configuration
 	location string
 }
 
@@ -54,9 +53,22 @@ func New(urlString string, pcConfig webrtc.Configuration) (*Client, error) {
 	}
 
 	client := &Client{
-		Pc:       pc,
-		url:      urlString,
-		pcConfig: pcConfig,
+		Pc:  pc,
+		url: urlString,
+	}
+
+	return client, nil
+}
+
+func NewFromPc(urlString string, pc *webrtc.PeerConnection) (*Client, error) {
+	_, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, ErrInvalidURL
+	}
+
+	client := &Client{
+		Pc:  pc,
+		url: urlString,
 	}
 
 	return client, nil
