@@ -5,12 +5,14 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v4"
 )
 
 var (
+	ErrInvalidURL         = errors.New("Invalid server URL")
 	ErrFailedToConnect    = errors.New("Failed to connect")
 	ErrNoLocationHeader   = errors.New("No location header in the response")
 	ErrFailedToDisconnect = errors.New("Failed to remove server resource")
@@ -24,11 +26,16 @@ type Client struct {
 	location string
 }
 
-func New(url string, pcConfig webrtc.Configuration) (*Client, error) {
+func New(urlString string, pcConfig webrtc.Configuration) (*Client, error) {
+	_, err := url.ParseRequestURI(urlString)
+	if err != nil {
+		return nil, ErrInvalidURL
+	}
+
 	interceptorRegistry := &interceptor.Registry{}
 	mediaEngine := &webrtc.MediaEngine{}
 
-	err := mediaEngine.RegisterDefaultCodecs()
+	err = mediaEngine.RegisterDefaultCodecs()
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +54,7 @@ func New(url string, pcConfig webrtc.Configuration) (*Client, error) {
 
 	client := &Client{
 		Pc:       pc,
-		url:      url,
+		url:      urlString,
 		pcConfig: pcConfig,
 	}
 

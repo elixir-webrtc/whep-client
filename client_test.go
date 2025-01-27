@@ -12,9 +12,14 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	_, err := New("", webrtc.Configuration{})
+	_, err := New("http://example.com", webrtc.Configuration{})
 	if err != nil {
 		t.Fatalf("New returned an error %v", err)
+	}
+
+	_, err = New("", webrtc.Configuration{})
+	if err != ErrInvalidURL {
+		t.Fatalf("Expected %s, got: %v", ErrInvalidURL, err)
 	}
 }
 
