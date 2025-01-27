@@ -3,6 +3,7 @@ package whepclient
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -103,7 +104,7 @@ func (client *Client) Connect() error {
 	}
 
 	if resp.StatusCode != 201 {
-		return ErrFailedToConnect
+		return errors.New(fmt.Sprintf("Failed to connect: %v", resp.StatusCode))
 	}
 
 	client.location = resp.Header.Get("location")
