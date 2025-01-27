@@ -9,19 +9,6 @@ A simple WHEP client.
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
-
-	whepclient "github.com/elixir-webrtc/whep-client"
-	"github.com/pion/webrtc/v4"
-)
-
-func main() {
-package main
-
-import (
 	"fmt"
 	"os"
 
