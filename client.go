@@ -14,7 +14,6 @@ import (
 
 var (
 	ErrInvalidURL         = errors.New("Invalid server URL")
-	ErrFailedToConnect    = errors.New("Failed to connect")
 	ErrNoLocationHeader   = errors.New("No location header in the response")
 	ErrFailedToDisconnect = errors.New("Failed to remove server resource")
 )
@@ -26,6 +25,7 @@ type Client struct {
 	location string
 }
 
+// New creates a new WHEP client using default Pion codecs and interceptors.
 func New(urlString string, pcConfig webrtc.Configuration) (*Client, error) {
 	_, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -60,6 +60,8 @@ func New(urlString string, pcConfig webrtc.Configuration) (*Client, error) {
 	return client, nil
 }
 
+// NewFromPc creates a new WHEP client using provided peer connection.
+// Can be used when you want to set custom codecs or interceptors.
 func NewFromPc(urlString string, pc *webrtc.PeerConnection) (*Client, error) {
 	_, err := url.ParseRequestURI(urlString)
 	if err != nil {
@@ -74,6 +76,7 @@ func NewFromPc(urlString string, pc *webrtc.PeerConnection) (*Client, error) {
 	return client, nil
 }
 
+// Connect tries to connect to the WHEP server.
 func (client *Client) Connect() error {
 	// add transceivers
 	_, err := client.Pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RTPTransceiverInit{
@@ -131,6 +134,7 @@ func (client *Client) Connect() error {
 	return nil
 }
 
+// Disconnect closes local peer connection and removes server resource.
 func (client *Client) Disconnect() error {
 	err := client.Pc.Close()
 	if err != nil {
